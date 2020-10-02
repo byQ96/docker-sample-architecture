@@ -14,4 +14,4 @@ Zdecydowano się na wykorzystanie najnowszych wersji obrazów z dopiskiem alpine
 ## Uruchomienie (Windows 10)
 Należy uruchomić skrypt 'deploy.bat' z poziomu konsoli lub przeglądarki plików. Skrypt 'deploy.bat' zawiera komendę tworzącą sieć web jeśli nie istnieje oraz pobierającą obrazy i tworzącą kontenery.
 ## Testy
-Wpisać w przeglądarkę adres http//localhost, http//www.localhost lub https://www.localhost. Powinna wyświetlić się informacja Welcome to nginx!.
+Wpisać w przeglądarkę adres http://localhost, http://www.localhost lub https://www.localhost. Powinna wyświetlić się informacja Welcome to nginx!.
