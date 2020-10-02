@@ -1,0 +1,111 @@
+version: '3'
+
+services: 
+
+    redis:
+        image: redis:alpine3.12
+        container_name: redis
+        restart: always
+        ports:
+            - 6379:6379
+        networks:
+            - web
+
+    postgres:
+        image: postgres:13.0-alpine
+        container_name: postgres
+        restart: always
+        volumes:
+            - db-data:/var/lib/postgresql/data
+        environment:
+            POSTGRES_PASSWORD: DbPassword
+        ports:
+            - 5432:5432
+        networks:
+            - web
+
+    rabbitmq:
+        image: rabbitmq:3.8.9-management-alpine       
+        container_name: rabbitmq
+        restart: always
+        hostname: app-rabbitmq
+        ports:
+            - 5672:5672
+            - 15672:15672
+        volumes:
+            - ./data/rabbitmq:/var/lib/rabbitmq/mnesia/rabbit@app-rabbitmq:cached
+        environment:
+            RABBITMQ_DEFAULT_USER: rabbitmq
+            RABBITMQ_DEFAULT_PASS: rabbitmq
+            RABBITMQ_DEFAULT_VHOST: /
+        networks:
+            - web
+
+    dummyservice:
+        image: python:alpine3.12
+        container_name: dummy-service
+        restart: always
+        environment:
+            - PYTHONUNBUFFERED=1
+        networks:
+            - web
+
+    webserver:
+        image: nginx:1.19.2-alpine
+        container_name: web-server
+        restart: always
+        labels: 
+            - "traefik.enable=true"
+            - "traefik.http.routers.webserver.rule=Host(`localhost`)"
+            - "traefik.http.routers.webserver.entrypoints=websecure"
+            - "traefik.http.routers.webserver.tls=true"
+        networks:
+            - web
+            
+    traefik:
+        image: traefik:v2.3.1
+        container_name: traefik
+        command:
+            - "--log.level=DEBUG"
+            - "--api.insecure=true"
+            - "--providers.docker=true"
+            - "--providers.docker.exposedbydefault=false"
+            - "--entrypoints.web.address=:80"
+            - "--entrypoints.websecure.address=:443"
+            # Use Let's Encrypt
+            - --certificatesresolvers.leresolver.acme.email=${LE_EMAIL_ADDRESS}
+            - --certificatesresolvers.leresolver.acme.storage=/letsencrypt/acme.json
+            - --certificatesresolvers.leresolver.acme.tlschallenge=true
+        restart: always
+        ports:
+            - 80:80
+            - 443:443
+            - 8080:8080
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        labels: 
+            traefik.enable: true
+
+            # Http redirect (no www)
+            traefik.http.routers.http.rule: HostRegexp(`{host:(www\.)?.+}`)
+            traefik.http.routers.http.entrypoints: web
+            traefik.http.routers.http.middlewares: www-https
+            
+            traefik.http.routers.https.rule: HostRegexp(`{host:(www\.).+}`)
+            traefik.http.routers.https.entrypoints: websecure
+            traefik.http.routers.https.tls: true
+            traefik.http.routers.https.middlewares: www-https
+
+            traefik.http.middlewares.www-https.redirectregex.regex: ^https?://(?:www\.)?(.+)
+            traefik.http.middlewares.www-https.redirectregex.replacement: https://$${1}
+            traefik.http.middlewares.www-https.redirectregex.permanent: true
+        networks: 
+            - web
+
+networks: 
+    web:
+        external: true
+
+volumes:
+    db-data:
+        driver: local
